@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wealth & Health of Nations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafaf8; --panel: #ffffff; --ink: #1d1d1f; --muted: #6e6e73; --grid: #e6e6e3;
+    --axis: #a1a1a6; --year: rgba(0,0,0,0.07); --accent: #1d1d1f; --stroke: rgba(0,0,0,0.35);
+    --africa: #2ab7ca; --americas: #8bc34a; --asia: #ef5350; --europe: #ffb300; --oceania: #ab47bc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121214; --panel: #1c1c1f; --ink: #f2f2f3; --muted: #9a9aa0; --grid: #2a2a2e;
+      --axis: #5a5a60; --year: rgba(255,255,255,0.07); --accent: #f2f2f3; --stroke: rgba(0,0,0,0.6);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, system-ui, sans-serif; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 16px 40px; }
+  header h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--muted); font-size: 14px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin: 18px 0 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px; }
+  .legend button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--grid); background: var(--panel);
+    color: var(--ink); font: 500 13px Inter, sans-serif; padding: 5px 10px; border-radius: 999px; cursor: pointer; }
+  .legend button.off { opacity: 0.35; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .search { margin-left: auto; position: relative; }
+  .search input { font: 14px Inter, sans-serif; padding: 7px 12px; border: 1px solid var(--grid); border-radius: 8px;
+    background: var(--panel); color: var(--ink); width: 220px; }
+  .chart { position: relative; background: var(--panel); border: 1px solid var(--grid); border-radius: 14px; }
+  svg { display: block; width: 100%; height: auto; }
+  .grid line { stroke: var(--grid); }
+  .grid path, .axis path { display: none; }
+  .axis text { fill: var(--muted); font: 12px Inter, sans-serif; }
+  .axis line { stroke: var(--axis); }
+  .axis-label { fill: var(--muted); font: 600 12px Inter, sans-serif; letter-spacing: 0.02em; }
+  .year-bg { fill: var(--year); font: 700 160px Inter, sans-serif; text-anchor: end; }
+  circle.bubble { stroke: var(--stroke); stroke-width: 0.6; cursor: pointer; transition: opacity 150ms; }
+  circle.bubble.dim { opacity: 0.12; }
+  circle.bubble.hl { stroke: var(--ink); stroke-width: 2.5; }
+  .label { font: 600 12px Inter, sans-serif; fill: var(--ink); pointer-events: none; paint-order: stroke;
+    stroke: var(--panel); stroke-width: 3px; }
+  .controls { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+  #play { width: 46px; height: 46px; border-radius: 50%; border: none; background: var(--accent); color: var(--bg);
+    cursor: pointer; flex: none; display: grid; place-items: center; }
+  #play svg { width: 18px; height: 18px; fill: currentColor; }
+  #slider { flex: 1; accent-color: var(--accent); height: 4px; }
+  #yearOut { font: 700 22px Inter, sans-serif; min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
+  select { font: 13px Inter, sans-serif; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--grid);
+    background: var(--panel); color: var(--ink); }
+  .tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--grid);
+    border-radius: 10px; padding: 10px 12px; font-size: 13px; box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+    opacity: 0; transition: opacity 120ms; min-width: 190px; z-index: 5; }
+  .tip h3 { margin: 0 0 2px; font-size: 15px; }
+  .tip .cont { color: var(--muted); font-size: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .tip table { border-collapse: collapse; width: 100%; }
+  .tip td { padding: 2px 0; }
+  .tip td:last-child { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; padding-left: 14px; }
+  footer { color: var(--muted); font-size: 12px; margin-top: 18px; line-height: 1.5; }
+  footer a { color: inherit; }
+  @media (max-width: 640px) {
+    .search { margin-left: 0; width: 100%; } .search input { width: 100%; }
+    .year-bg { font-size: 90px; } header h1 { font-size: 21px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>The Wealth & Health of Nations, 1810–2020</h1>
+    <p>Income per person vs. life expectancy. Bubble size shows population; color shows continent.</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="legend" id="legend"></div>
+    <div class="search">
+      <input id="search" list="countryList" placeholder="Find a country…" autocomplete="off">
+      <datalist id="countryList"></datalist>
+    </div>
+  </div>
+
+  <div class="chart" id="chart">
+    <svg id="svg"></svg>
+    <div class="tip" id="tip"></div>
+  </div>
+
+  <div class="controls">
+    <button id="play" aria-label="Play"></button>
+    <input type="range" id="slider" min="1810" max="2020" step="1" value="1810" aria-label="Year">
+    <div id="yearOut">1810</div>
+    <select id="speed" aria-label="Speed">
+      <option value="250">Slow</option>
+      <option value="120" selected>Normal</option>
+      <option value="50">Fast</option>
+    </select>
+  </div>
+
+  <footer>
+    Data: Gapminder (life expectancy, GDP per capita in PPP constant 2017 international $, population).
+    Hover a bubble for details; click a bubble or search to highlight a country; click a continent to toggle it.
+    Use ← / → to step through years and the space bar to play/pause.
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+(async function () {
+  const data = await (await fetch('data/data.json')).json();
+  const START = data.startYear, END = data.endYear;
+  const CONTINENTS = ['Africa', 'Americas', 'Asia', 'Europe', 'Oceania'];
+  const css = getComputedStyle(document.documentElement);
+  const colorOf = c => css.getPropertyValue('--' + c.toLowerCase()).trim();
+
+  const W = 1100, H = 620, M = { top: 20, right: 30, bottom: 56, left: 64 };
+  const svg = d3.select('#svg').attr('viewBox', `0 0 ${W} ${H}`);
+  const x = d3.scaleLog().domain([200, 150000]).range([M.left, W - M.right]).clamp(true);
+  const y = d3.scaleLinear().domain([0, 90]).range([H - M.bottom, M.top]);
+  const maxPop = d3.max(data.countries, c => d3.max(c.pop));
+  const r = d3.scaleSqrt().domain([0, maxPop]).range([0, 58]);
+
+  // grid + axes
+  const xTicks = [300, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
+  svg.append('g').attr('class', 'grid').attr('transform', `translate(0,${H - M.bottom})`)
+    .call(d3.axisBottom(x).tickValues(xTicks).tickSize(-(H - M.top - M.bottom)).tickFormat(''));
+  svg.append('g').attr('class', 'grid').attr('transform', `translate(${M.left},0)`)
+    .call(d3.axisLeft(y).ticks(9).tickSize(-(W - M.left - M.right)).tickFormat(''));
+  const yearText = svg.append('text').attr('class', 'year-bg').attr('x', W - M.right - 10).attr('y', H - M.bottom - 18);
+  svg.append('g').attr('class', 'axis').attr('transform', `translate(0,${H - M.bottom})`)
+    .call(d3.axisBottom(x).tickValues(xTicks).tickFormat(d => '$' + d3.format(',')(d)));
+  svg.append('g').attr('class', 'axis').attr('transform', `translate(${M.left},0)`).call(d3.axisLeft(y).ticks(9));
+  svg.append('text').attr('class', 'axis-label').attr('x', (M.left + W - M.right) / 2).attr('y', H - 14)
+    .attr('text-anchor', 'middle').text('INCOME PER PERSON (GDP/CAPITA, PPP $, LOG SCALE)');
+  svg.append('text').attr('class', 'axis-label').attr('transform', 'rotate(-90)')
+    .attr('x', -(M.top + H - M.bottom) / 2).attr('y', 18).attr('text-anchor', 'middle').text('LIFE EXPECTANCY (YEARS)');
+
+  const bubbleLayer = svg.append('g');
+  const labelLayer = svg.append('g');
+
+  // state
+  let year = START, timer = null, selected = new Set();
+  const hidden = new Set();
+
+  // legend
+  const legend = d3.select('#legend').selectAll('button').data(CONTINENTS).join('button')
+    .html(c => `<span class="dot" style="background:${colorOf(c)}"></span>${c}`)
+    .on('click', (e, c) => { hidden.has(c) ? hidden.delete(c) : hidden.add(c); render(false); });
+
+  d3.select('#countryList').selectAll('option').data(data.countries.map(c => c.name).sort()).join('option').attr('value', d => d);
+  d3.select('#search').on('change', function () {
+    const c = data.countries.find(c => c.name.toLowerCase() === this.value.trim().toLowerCase());
+    if (c) { selected.add(c.id); this.value = ''; render(false); }
+  });
+
+  const idx = yr => yr - START;
+  function snapshot(yr) {
+    const i = idx(yr);
+    return data.countries
+      .filter(c => c.lex[i] != null && c.gdp[i] != null && c.pop[i] != null)
+      .map(c => ({ c, lex: c.lex[i], gdp: c.gdp[i], pop: c.pop[i] }))
+      .sort((a, b) => b.pop - a.pop);
+  }
+
+  const fmtPop = p => p >= 1e9 ? (p / 1e9).toFixed(2) + ' billion' : p >= 1e6 ? (p / 1e6).toFixed(1) + ' million' : d3.format(',')(Math.round(p));
+  const tip = d3.select('#tip');
+  let hovered = null;
+  function tipHtml(d) {
+    return `<h3>${d.c.name}</h3>
+      <div class="cont"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colorOf(d.c.continent)}"></span>${d.c.continent} · ${year}</div>
+      <table>
+        <tr><td>Income per person</td><td>$${d3.format(',')(Math.round(d.gdp))}</td></tr>
+        <tr><td>Life expectancy</td><td>${d.lex.toFixed(1)} yrs</td></tr>
+        <tr><td>Population</td><td>${fmtPop(d.pop)}</td></tr>
+      </table>`;
+  }
+  function showTip(event, d) {
+    hovered = d.c.id;
+    tip.html(tipHtml(d)).style('opacity', 1);
+    const box = document.getElementById('chart').getBoundingClientRect();
+    let left = event.clientX - box.left + 14, top = event.clientY - box.top + 14;
+    const tw = tip.node().offsetWidth, th = tip.node().offsetHeight;
+    if (left + tw > box.width) left -= tw + 28;
+    if (top + th > box.height) top -= th + 28;
+    tip.style('left', left + 'px').style('top', top + 'px');
+  }
+  function hideTip() { hovered = null; tip.style('opacity', 0); }
+
+  function render(animate) {
+    const snap = snapshot(year);
+    const dur = animate ? +document.getElementById('speed').value : 0;
+    const t = d3.transition().duration(dur).ease(d3.easeLinear);
+    yearText.text(year);
+    d3.select('#yearOut').text(year);
+    document.getElementById('slider').value = year;
+    legend.classed('off', c => hidden.has(c));
+
+    const anySel = selected.size > 0;
+    bubbleLayer.selectAll('circle.bubble').data(snap, d => d.c.id).join(
+      enter => enter.append('circle').attr('class', 'bubble')
+        .attr('cx', d => x(d.gdp)).attr('cy', d => y(d.lex)).attr('r', 0)
+        .attr('fill', d => colorOf(d.c.continent))
+        .on('mousemove', showTip).on('mouseleave', hideTip)
+        .on('click', (e, d) => { selected.has(d.c.id) ? selected.delete(d.c.id) : selected.add(d.c.id); render(false); }),
+      update => update,
+      exit => exit.transition(t).attr('r', 0).remove()
+    )
+      .order()
+      .classed('dim', d => hidden.has(d.c.continent) || (anySel && !selected.has(d.c.id)))
+      .classed('hl', d => selected.has(d.c.id))
+      .transition(t)
+      .attr('cx', d => x(d.gdp)).attr('cy', d => y(d.lex)).attr('r', d => r(d.pop));
+
+    const labeled = snap.filter(d => selected.has(d.c.id));
+    labelLayer.selectAll('text').data(labeled, d => d.c.id).join('text').attr('class', 'label')
+      .text(d => d.c.name)
+      .transition(t)
+      .attr('x', d => x(d.gdp) + r(d.pop) + 4).attr('y', d => y(d.lex) + 4);
+
+    if (hovered) {
+      const d = snap.find(s => s.c.id === hovered);
+      if (d) tip.html(tipHtml(d)); else hideTip();
+    }
+  }
+
+  const ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg>';
+  const ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+  const playBtn = d3.select('#play');
+  function setIcon() { playBtn.html(timer ? ICON_PAUSE : ICON_PLAY).attr('aria-label', timer ? 'Pause' : 'Play'); }
+  function step() {
+    if (year >= END) { pause(); return; }
+    year++; render(true);
+    timer = setTimeout(step, +document.getElementById('speed').value);
+  }
+  function play() { if (timer) return; if (year >= END) { year = START; render(false); } timer = setTimeout(step, 0); setIcon(); }
+  function pause() { clearTimeout(timer); timer = null; setIcon(); }
+  playBtn.on('click', () => timer ? pause() : play());
+  d3.select('#slider').on('input', function () { pause(); year = +this.value; render(false); });
+  document.addEventListener('keydown', e => {
+    if (['INPUT', 'SELECT'].includes(e.target.tagName)) return;
+    if (e.code === 'Space') { e.preventDefault(); timer ? pause() : play(); }
+    if (e.key === 'ArrowRight') { pause(); year = Math.min(END, year + 1); render(false); }
+    if (e.key === 'ArrowLeft') { pause(); year = Math.max(START, year - 1); render(false); }
+  });
+
+  setIcon();
+  render(false);
+})();
+</script>
+</body>
+</html>
